@@ -1,0 +1,6 @@
+@ConfigurationManager_HostAddress = http://localhost:5283
+
+GET {{ConfigurationManager_HostAddress}}/api/configuration
+Accept: application/json
+
+###

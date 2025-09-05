@@ -1,0 +1,47 @@
+﻿<!--
+  Dinamik Konfigürasyon Yönetim Kütüphanesi - DynamicConfiguration
+  
+  Bu kütüphane, uygulamaların konfigürasyon değerlerini dinamik olarak yönetmesini sağlar.
+  MongoDB ile veri saklama, RabbitMQ ile gerçek zamanlı mesajlaşma ve güçlü tipli
+  konfigürasyon erişimi sunar.
+  
+  Özellikler:
+  - Güçlü tipli konfigürasyon değeri erişimi (GetValue<T>)
+  - Otomatik periyodik yenileme (Timer tabanlı)
+  - Gerçek zamanlı değişiklik bildirimleri (RabbitMQ)
+  - Thread-safe cache yönetimi
+  - Son başarılı değerlere geri dönüş (fallback)
+  - MongoDB ile güvenli veri saklama
+  - Sağlık durumu takibi
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- .NET 8.0 hedef framework -->
+    <TargetFramework>net8.0</TargetFramework>
+    
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- Proje açıklaması -->
+    <Description>Dinamik Konfigürasyon Yönetim Kütüphanesi</Description>
+    <AssemblyTitle>Dinamik Konfigürasyon Kütüphanesi</AssemblyTitle>
+    <AssemblyDescription>Uygulamalar için dinamik konfigürasyon değerlerini yöneten kütüphane</AssemblyDescription>
+    <AssemblyCompany>CodeCase Konfigürasyon Çerçevesi</AssemblyCompany>
+    <AssemblyProduct>Dinamik Konfigürasyon Yönetim Sistemi</AssemblyProduct>
+    <AssemblyCopyright>Copyright © 2024</AssemblyCopyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="2.24.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="System.Text.Json" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

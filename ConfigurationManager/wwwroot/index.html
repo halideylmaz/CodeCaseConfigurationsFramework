@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dinamik Konfigürasyon Yönetim Sistemi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .header-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .card-custom {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
+        }
+        .card-custom:hover {
+            transform: translateY(-2px);
+        }
+        .btn-custom {
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn-custom:hover {
+            transform: translateY(-1px);
+        }
+        .table-custom {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .badge-custom {
+            font-size: 0.8em;
+            padding: 0.5em 0.8em;
+        }
+        .filter-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-active { background-color: #28a745; }
+        .status-inactive { background-color: #6c757d; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <!-- Header Section -->
+                <div class="header-gradient">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="mb-2">
+                                <i class="bi bi-gear-fill me-3"></i>
+                                Dinamik Konfigürasyon Yönetim Sistemi
+                            </h1>
+                            <p class="mb-0 opacity-75">
+                                Uygulamalarınızın konfigürasyon değerlerini merkezi olarak yönetin
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-light btn-custom" data-bs-toggle="modal" data-bs-target="#addConfigModal">
+                            <i class="bi bi-plus-circle me-2"></i> Yeni Konfigürasyon
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filtreler -->
+                <div class="card card-custom mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="mb-0">
+                            <i class="bi bi-funnel me-2"></i>
+                            Filtreler ve Arama
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="nameFilter" class="form-label fw-semibold">Konfigürasyon Adı</label>
+                                <input type="text" class="form-control" id="nameFilter" placeholder="Konfigürasyon adı girin...">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="appFilter" class="form-label fw-semibold">Uygulama Adı</label>
+                                <input type="text" class="form-control" id="appFilter" placeholder="Uygulama adı girin...">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="statusFilter" class="form-label fw-semibold">Durum</label>
+                                <select class="form-select" id="statusFilter">
+                                    <option value="">Tümü</option>
+                                    <option value="true">Aktif</option>
+                                    <option value="false">Pasif</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="typeFilter" class="form-label fw-semibold">Veri Tipi</label>
+                                <select class="form-select" id="typeFilter">
+                                    <option value="">Tüm Tipler</option>
+                                    <option value="0">String</option>
+                                    <option value="1">Int</option>
+                                    <option value="2">Double</option>
+                                    <option value="3">Boolean</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-secondary btn-custom me-2" onclick="clearFilters()">
+                                    <i class="bi bi-x-circle me-1"></i> Temizle
+                                </button>
+                                <button type="button" class="btn btn-primary btn-custom" onclick="loadConfigurations()">
+                                    <i class="bi bi-search me-1"></i> Ara
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Konfigürasyonlar Tablosu -->
+                <div class="card card-custom">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="mb-0">
+                            <i class="bi bi-table me-2"></i>
+                            Konfigürasyon Kayıtları
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 table-custom" id="configurationsTable">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th class="border-0">Ad</th>
+                                        <th class="border-0">Tip</th>
+                                        <th class="border-0">Değer</th>
+                                        <th class="border-0">Uygulama</th>
+                                        <th class="border-0">Durum</th>
+                                        <th class="border-0">Oluşturulma</th>
+                                        <th class="border-0">Güncellenme</th>
+                                        <th class="border-0 text-center">İşlemler</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="configurationsBody">
+                                    <!-- Veriler buraya yüklenecek -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yeni Konfigürasyon Modal -->
+    <div class="modal fade" id="addConfigModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Yeni Konfigürasyon Ekle
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addConfigForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="configName" class="form-label fw-semibold">Konfigürasyon Adı</label>
+                                    <input type="text" class="form-control" id="configName" required placeholder="Örn: SiteName">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="configApp" class="form-label fw-semibold">Uygulama Adı</label>
+                                    <input type="text" class="form-control" id="configApp" required placeholder="Örn: SERVICE-A">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="configType" class="form-label fw-semibold">Veri Tipi</label>
+                                    <select class="form-select" id="configType" required onchange="updateValueInput()">
+                                        <option value="0">String</option>
+                                        <option value="1">Int</option>
+                                        <option value="2">Double</option>
+                                        <option value="3">Boolean</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="configValue" class="form-label fw-semibold">Değer</label>
+                                    <input type="text" class="form-control" id="configValue" required placeholder="Konfigürasyon değeri">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="configActive" checked>
+                                <label class="form-check-label fw-semibold" for="configActive">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Aktif (Bu konfigürasyon kullanılabilir)
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-custom" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> İptal
+                    </button>
+                    <button type="button" class="btn btn-primary btn-custom" onclick="addConfiguration()">
+                        <i class="bi bi-check-circle me-1"></i> Konfigürasyon Ekle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Konfigürasyon Düzenleme Modal -->
+    <div class="modal fade" id="editConfigModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        Konfigürasyon Düzenle
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editConfigForm">
+                        <input type="hidden" id="editConfigId">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editConfigName" class="form-label fw-semibold">Konfigürasyon Adı</label>
+                                    <input type="text" class="form-control" id="editConfigName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editConfigApp" class="form-label fw-semibold">Uygulama Adı</label>
+                                    <input type="text" class="form-control" id="editConfigApp" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editConfigType" class="form-label fw-semibold">Veri Tipi</label>
+                                    <select class="form-select" id="editConfigType" required onchange="updateEditValueInput()">
+                                        <option value="0">String</option>
+                                        <option value="1">Int</option>
+                                        <option value="2">Double</option>
+                                        <option value="3">Boolean</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="editConfigValue" class="form-label fw-semibold">Değer</label>
+                                    <input type="text" class="form-control" id="editConfigValue" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="editConfigActive" checked>
+                                <label class="form-check-label fw-semibold" for="editConfigActive">
+                                    <i class="bi bi-check-circle me-1"></i>
+                                    Aktif (Bu konfigürasyon kullanılabilir)
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-custom" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> İptal
+                    </button>
+                    <button type="button" class="btn btn-warning btn-custom" onclick="updateConfiguration()">
+                        <i class="bi bi-check-circle me-1"></i> Güncelle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let allConfigurations = [];
+
+        // Load configurations on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfigurations();
+
+            // Add real-time filtering
+            document.getElementById('nameFilter').addEventListener('input', filterConfigurations);
+            document.getElementById('appFilter').addEventListener('input', filterConfigurations);
+            document.getElementById('statusFilter').addEventListener('change', filterConfigurations);
+            document.getElementById('typeFilter').addEventListener('change', filterConfigurations);
+        });
+
+        async function loadConfigurations() {
+            try {
+                const response = await fetch('/api/configuration');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allConfigurations = await response.json();
+                displayConfigurations(allConfigurations);
+            } catch (error) {
+                console.error('Error loading configurations:', error);
+                showAlert('Konfigürasyonlar yüklenirken hata oluştu. Lütfen konsolu kontrol edin.', 'danger');
+            }
+        }
+
+        function displayConfigurations(configurations) {
+            const tbody = document.getElementById('configurationsBody');
+            tbody.innerHTML = '';
+
+            if (configurations.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <div class="text-muted">
+                                <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                                <h5>Konfigürasyon bulunamadı</h5>
+                                <p class="mb-0">Henüz hiç konfigürasyon kaydı yok. Yeni bir konfigürasyon eklemek için yukarıdaki butonu kullanın.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            configurations.forEach(config => {
+                const row = document.createElement('tr');
+                row.className = 'align-middle';
+
+                const typeText = getTypeText(config.type);
+                const statusBadge = config.isActive
+                    ? '<span class="badge bg-success badge-custom"><span class="status-indicator status-active"></span>Aktif</span>'
+                    : '<span class="badge bg-secondary badge-custom"><span class="status-indicator status-inactive"></span>Pasif</span>';
+
+                const typeBadge = getTypeBadge(config.type);
+
+                row.innerHTML = `
+                    <td class="fw-semibold">${config.name}</td>
+                    <td>${typeBadge}</td>
+                    <td class="font-monospace">${config.value}</td>
+                    <td><span class="badge bg-primary badge-custom">${config.applicationName}</span></td>
+                    <td>${statusBadge}</td>
+                    <td class="text-muted small">${new Date(config.createdAt).toLocaleDateString('tr-TR')}</td>
+                    <td class="text-muted small">${new Date(config.updatedAt).toLocaleDateString('tr-TR')}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-warning me-1 btn-custom" onclick="editConfiguration('${config.id}')" title="Düzenle">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger btn-custom" onclick="deleteConfiguration('${config.id}')" title="Sil">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterConfigurations() {
+            const nameFilter = document.getElementById('nameFilter').value.toLowerCase();
+            const appFilter = document.getElementById('appFilter').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+
+            const filtered = allConfigurations.filter(config => {
+                const matchesName = config.name.toLowerCase().includes(nameFilter);
+                const matchesApp = config.applicationName.toLowerCase().includes(appFilter);
+                const matchesStatus = statusFilter === '' || config.isActive.toString() === statusFilter;
+                const matchesType = typeFilter === '' || config.type.toString() === typeFilter;
+
+                return matchesName && matchesApp && matchesStatus && matchesType;
+            });
+
+            displayConfigurations(filtered);
+        }
+
+        function clearFilters() {
+            document.getElementById('nameFilter').value = '';
+            document.getElementById('appFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('typeFilter').value = '';
+            displayConfigurations(allConfigurations);
+        }
+
+        function getTypeText(type) {
+            switch (type) {
+                case 0: return 'String';
+                case 1: return 'Int';
+                case 2: return 'Double';
+                case 3: return 'Boolean';
+                default: return 'Bilinmeyen';
+            }
+        }
+
+        function getTypeBadge(type) {
+            const badges = {
+                0: '<span class="badge bg-info badge-custom"><i class="bi bi-type me-1"></i>String</span>',
+                1: '<span class="badge bg-warning badge-custom"><i class="bi bi-123 me-1"></i>Int</span>',
+                2: '<span class="badge bg-success badge-custom"><i class="bi bi-calculator me-1"></i>Double</span>',
+                3: '<span class="badge bg-danger badge-custom"><i class="bi bi-toggle-on me-1"></i>Boolean</span>'
+            };
+            return badges[type] || '<span class="badge bg-secondary badge-custom">Bilinmeyen</span>';
+        }
+
+        function updateValueInput() {
+            const typeSelect = document.getElementById('configType');
+            const valueInput = document.getElementById('configValue');
+
+            // Reset value input
+            valueInput.value = '';
+            valueInput.type = 'text';
+
+            // Update placeholder based on type
+            switch (parseInt(typeSelect.value)) {
+                case 1: // Int
+                    valueInput.placeholder = 'Int değeri girin (örn: 100)';
+                    break;
+                case 2: // Double
+                    valueInput.placeholder = 'Double değer girin (örn: 3.14)';
+                    valueInput.type = 'number';
+                    valueInput.step = '0.01';
+                    break;
+                case 3: // Boolean
+                    valueInput.placeholder = 'true veya false';
+                    break;
+                default: // String
+                    valueInput.placeholder = 'String değeri girin (örn: soty.io)';
+                    break;
+            }
+        }
+
+        function updateEditValueInput() {
+            const typeSelect = document.getElementById('editConfigType');
+            const valueInput = document.getElementById('editConfigValue');
+
+            // Reset value input
+            valueInput.type = 'text';
+
+            // Update placeholder based on type
+            switch (parseInt(typeSelect.value)) {
+                case 2: // Double
+                    valueInput.type = 'number';
+                    valueInput.step = '0.01';
+                    break;
+            }
+        }
+
+        async function addConfiguration() {
+            const form = document.getElementById('addConfigForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const configData = {
+                name: document.getElementById('configName').value,
+                type: parseInt(document.getElementById('configType').value),
+                value: document.getElementById('configValue').value,
+                applicationName: document.getElementById('configApp').value,
+                isActive: document.getElementById('configActive').checked
+            };
+
+            try {
+                const response = await fetch('/api/configuration', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                showAlert('Konfigürasyon başarıyla eklendi!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addConfigModal')).hide();
+                form.reset();
+                loadConfigurations();
+            } catch (error) {
+                console.error('Error adding configuration:', error);
+                showAlert('Konfigürasyon eklenirken hata oluştu. Lütfen konsolu kontrol edin.', 'danger');
+            }
+        }
+
+        function editConfiguration(id) {
+            const config = allConfigurations.find(c => c.id === id);
+            if (!config) return;
+
+            document.getElementById('editConfigId').value = config.id;
+            document.getElementById('editConfigName').value = config.name;
+            document.getElementById('editConfigType').value = config.type;
+            document.getElementById('editConfigValue').value = config.value;
+            document.getElementById('editConfigApp').value = config.applicationName;
+            document.getElementById('editConfigActive').checked = config.isActive;
+
+            updateEditValueInput();
+
+            new bootstrap.Modal(document.getElementById('editConfigModal')).show();
+        }
+
+        async function updateConfiguration() {
+            const form = document.getElementById('editConfigForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const id = document.getElementById('editConfigId').value;
+            const configData = {
+                name: document.getElementById('editConfigName').value,
+                type: parseInt(document.getElementById('editConfigType').value),
+                value: document.getElementById('editConfigValue').value,
+                applicationName: document.getElementById('editConfigApp').value,
+                isActive: document.getElementById('editConfigActive').checked
+            };
+
+            try {
+                const response = await fetch(`/api/configuration/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                showAlert('Konfigürasyon başarıyla güncellendi!', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('editConfigModal')).hide();
+                loadConfigurations();
+            } catch (error) {
+                console.error('Error updating configuration:', error);
+                showAlert('Konfigürasyon güncellenirken hata oluştu. Lütfen konsolu kontrol edin.', 'danger');
+            }
+        }
+
+        async function deleteConfiguration(id) {
+            if (!confirm('Bu konfigürasyonu silmek istediğinizden emin misiniz?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/configuration/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                showAlert('Konfigürasyon başarıyla silindi!', 'success');
+                loadConfigurations();
+            } catch (error) {
+                console.error('Error deleting configuration:', error);
+                showAlert('Konfigürasyon silinirken hata oluştu. Lütfen konsolu kontrol edin.', 'danger');
+            }
+        }
+
+        function showAlert(message, type) {
+            // Remove existing alerts
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+
+            // Create new alert
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            document.body.appendChild(alertDiv);
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+
+

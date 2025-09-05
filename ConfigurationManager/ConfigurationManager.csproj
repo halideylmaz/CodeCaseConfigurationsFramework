@@ -1,0 +1,54 @@
+<!--
+  Dinamik Konfigürasyon Yönetim Sistemi - Configuration Manager
+  
+  Bu proje, uygulamaların konfigürasyon değerlerini dinamik olarak yönetmesini sağlayan
+  bir Web API servisidir. MongoDB ile veri saklama, RabbitMQ ile gerçek zamanlı
+  mesajlaşma ve Swagger ile API dokümantasyonu sunar.
+  
+  Özellikler:
+  - RESTful API ile konfigürasyon CRUD işlemleri
+  - MongoDB ile güvenli veri saklama
+  - RabbitMQ ile gerçek zamanlı değişiklik bildirimleri
+  - Swagger UI ile API dokümantasyonu
+  - CORS desteği ile web arayüzü entegrasyonu
+  - Health check endpoint'i ile sistem durumu kontrolü
+-->
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- .NET 8.0 hedef framework -->
+    <TargetFramework>net8.0</TargetFramework>
+    
+    <Nullable>enable</Nullable>
+    
+    <ImplicitUsings>enable</ImplicitUsings>
+    
+    <!-- Proje açıklaması -->
+    <Description>Dinamik Konfigürasyon Yönetim Sistemi - Web API Servisi</Description>
+    <AssemblyTitle>Konfigürasyon Yöneticisi API</AssemblyTitle>
+    <AssemblyDescription>Uygulamalar için dinamik konfigürasyon değerlerini yöneten Web API servisi</AssemblyDescription>
+    <AssemblyCompany>CodeCase Konfigürasyon Çerçevesi</AssemblyCompany>
+    <AssemblyProduct>Dinamik Konfigürasyon Yönetim Sistemi</AssemblyProduct>
+    <AssemblyCopyright>Copyright © 2024</AssemblyCopyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.6" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+    <PackageReference Include="MongoDB.Driver" Version="2.24.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="System.Text.Json" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- ======================================== -->
+  <!-- PROJE BAĞIMLILIKLARI -->
+  <!-- ======================================== -->
+  <ItemGroup>
+    <!-- Dinamik Konfigürasyon kütüphanesi referansı -->
+    <ProjectReference Include="..\DynamicConfiguration\DynamicConfiguration.csproj" />
+  </ItemGroup>
+
+</Project>

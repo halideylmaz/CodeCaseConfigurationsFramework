@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  configuration-manager:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./ConfigurationManager/appsettings.json:/app/appsettings.json
+      - ./ConfigurationManager/wwwroot:/app/wwwroot
+    ports:
+      - "5000:80"
+      - "5001:443"
+
+
