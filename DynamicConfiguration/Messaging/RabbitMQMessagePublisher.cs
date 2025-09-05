@@ -7,41 +7,17 @@ using System.Text.Json;
 
 namespace DynamicConfiguration.Messaging
 {
-    /// <summary>
-    /// RabbitMQ Mesaj Yayınlayıcı - Konfigürasyon değişiklik olaylarını RabbitMQ'ya yayınlamak için kullanılır
-    /// 
-    /// Bu sınıf, IMessagePublisher arayüzünün RabbitMQ implementasyonudur.
-    /// Konfigürasyon değişiklik olaylarını RabbitMQ exchange'ine yayınlar ve
-    /// gerçek zamanlı bildirimler sağlar.
-    /// 
-    /// Özellikler:
-    /// - RabbitMQ bağlantı yönetimi
-    /// - Asenkron mesaj yayınlama
-    /// - Yeniden deneme mekanizması
-    /// - Otomatik bağlantı kurtarma
-    /// - Thread-safe işlemler
-    /// - Kaynak yönetimi (IDisposable)
-    /// </summary>
+    /// <summary>RabbitMQ message publisher implementation.</summary>
     public class RabbitMQMessagePublisher : IMessagePublisher, IDisposable
     {
-        // ========================================
-        // PRIVATE FIELDS
-        // ========================================
-        private readonly RabbitMQSettings _settings;                              // RabbitMQ ayarları
-        private readonly ILogger<RabbitMQMessagePublisher> _logger;               // Loglama servisi
-        private IConnection? _connection;                                         // RabbitMQ bağlantısı
-        private IModel? _channel;                                                 // RabbitMQ kanalı
-        private readonly object _lock = new object();                             // Thread-safety için lock
-        private bool _disposed = false;                                           // Dispose durumu
+        private readonly RabbitMQSettings _settings;
+        private readonly ILogger<RabbitMQMessagePublisher> _logger;
+        private IConnection? _connection;
+        private IModel? _channel;
+        private readonly object _lock = new object();
+        private bool _disposed = false;
 
-        /// <summary>
-        /// RabbitMQ Mesaj Yayınlayıcı'sını başlatır
-        /// 
-        /// Bu constructor, RabbitMQ bağlantısını kurar ve exchange'i yapılandırır.
-        /// </summary>
-        /// <param name="settings">RabbitMQ bağlantı ayarları</param>
-        /// <param name="logger">Loglama servisi</param>
-        /// <exception cref="Exception">RabbitMQ bağlantısı kurulamazsa fırlatılır</exception>
+        /// <summary>RabbitMQ connection setup.</summary>
         public RabbitMQMessagePublisher(IOptions<RabbitMQSettings> settings, ILogger<RabbitMQMessagePublisher> logger)
         {
             _settings = settings.Value;

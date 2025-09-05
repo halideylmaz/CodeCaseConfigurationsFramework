@@ -5,37 +5,13 @@ using MongoDB.Driver;
 
 namespace DynamicConfiguration.Repositories
 {
-    /// <summary>
-    /// MongoDB Konfigürasyon Repository Implementasyonu - MongoDB veritabanı ile konfigürasyon verilerine erişim sağlar
-    /// 
-    /// Bu sınıf, IConfigurationRepository arayüzünün MongoDB implementasyonudur.
-    /// Konfigürasyon kayıtlarının MongoDB'de saklanması, alınması, güncellenmesi ve
-    /// silinmesi işlemlerini gerçekleştirir.
-    /// 
-    /// Özellikler:
-    /// - MongoDB bağlantı yönetimi
-    /// - Performans için index oluşturma
-    /// - Asenkron veri işlemleri
-    /// - Hata yönetimi ve loglama
-    /// - Sağlık durumu kontrolü
-    /// </summary>
+    /// <summary>MongoDB repository implementation.</summary>
     public class MongoConfigurationRepository : IConfigurationRepository
     {
-        // ========================================
-        // PRIVATE FIELDS
-        // ========================================
-        private readonly IMongoCollection<ConfigurationRecord> _collection;  // MongoDB koleksiyonu
-        private readonly ILogger<MongoConfigurationRepository> _logger;      // Loglama servisi
+        private readonly IMongoCollection<ConfigurationRecord> _collection;
+        private readonly ILogger<MongoConfigurationRepository> _logger;
 
-        /// <summary>
-        /// MongoDB Konfigürasyon Repository'sini başlatır
-        /// 
-        /// Bu constructor, MongoDB bağlantısını kurar, veritabanı ve koleksiyonu
-        /// yapılandırır ve performans için gerekli indexleri oluşturur.
-        /// </summary>
-        /// <param name="settings">MongoDB bağlantı ayarları</param>
-        /// <param name="logger">Loglama servisi</param>
-        /// <exception cref="Exception">MongoDB bağlantısı kurulamazsa fırlatılır</exception>
+        /// <summary>MongoDB connection ve index setup.</summary>
         public MongoConfigurationRepository(
             IOptions<MongoDbSettings> settings,
             ILogger<MongoConfigurationRepository> logger)
@@ -44,7 +20,7 @@ namespace DynamicConfiguration.Repositories
 
             try
             {
-                // MongoDB istemcisini oluştur
+                // MongoDB client setup
                 var client = new MongoClient(settings.Value.ConnectionString);
                 var database = client.GetDatabase(settings.Value.DatabaseName);
                 _collection = database.GetCollection<ConfigurationRecord>(settings.Value.CollectionName);
@@ -67,23 +43,18 @@ namespace DynamicConfiguration.Repositories
             }
         }
 
-        /// <summary>
-        /// Belirli bir uygulama için tüm aktif konfigürasyon kayıtlarını getirir
-        /// </summary>
-        /// <param name="applicationName">Uygulama adı</param>
-        /// <param name="cancellationToken">İptal token'ı</param>
-        /// <returns>Aktif konfigürasyon kayıtları koleksiyonu</returns>
+        /// <summary>Uygulama için aktif konfigürasyonları getirir.</summary>
         public async Task<IEnumerable<ConfigurationRecord>> GetActiveConfigurationsAsync(string applicationName, CancellationToken cancellationToken = default)
         {
             try
             {
-                // Uygulama adı ve aktiflik durumuna göre filtre oluştur
+                // Filter oluştur
                 var filter = Builders<ConfigurationRecord>.Filter.And(
                     Builders<ConfigurationRecord>.Filter.Eq(x => x.ApplicationName, applicationName),
                     Builders<ConfigurationRecord>.Filter.Eq(x => x.IsActive, true)
                 );
 
-                // Konfigürasyonları veritabanından al
+                // Config'leri al
                 var configurations = await _collection.Find(filter).ToListAsync(cancellationToken);
                 _logger.LogInformation("Aktif konfigürasyonlar alındı - Uygulama: {ApplicationName}, Adet: {Count}", applicationName, configurations.Count);
 
@@ -96,25 +67,19 @@ namespace DynamicConfiguration.Repositories
             }
         }
 
-        /// <summary>
-        /// Uygulama adı ve konfigürasyon adına göre belirli bir konfigürasyon kaydını getirir
-        /// </summary>
-        /// <param name="applicationName">Uygulama adı</param>
-        /// <param name="name">Konfigürasyon adı</param>
-        /// <param name="cancellationToken">İptal token'ı</param>
-        /// <returns>Konfigürasyon kaydı veya null</returns>
+        /// <summary>Tek bir konfigürasyon kaydını getirir.</summary>
         public async Task<ConfigurationRecord?> GetConfigurationAsync(string applicationName, string name, CancellationToken cancellationToken = default)
         {
             try
             {
-                // Uygulama adı, konfigürasyon adı ve aktiflik durumuna göre filtre oluştur
+                // Filter oluştur
                 var filter = Builders<ConfigurationRecord>.Filter.And(
                     Builders<ConfigurationRecord>.Filter.Eq(x => x.ApplicationName, applicationName),
                     Builders<ConfigurationRecord>.Filter.Eq(x => x.Name, name),
                     Builders<ConfigurationRecord>.Filter.Eq(x => x.IsActive, true)
                 );
 
-                // Konfigürasyonu veritabanından al
+                // Config'i al
                 var configuration = await _collection.Find(filter).FirstOrDefaultAsync(cancellationToken);
 
                 if (configuration != null)
@@ -278,7 +243,7 @@ namespace DynamicConfiguration.Repositories
                 // ID'ye göre filtre oluştur
                 var filter = Builders<ConfigurationRecord>.Filter.Eq(x => x.Id, id);
                 
-                // Konfigürasyonu veritabanından al
+                // Config'i al
                 var configuration = await _collection.Find(filter).FirstOrDefaultAsync(cancellationToken);
 
                 if (configuration != null)

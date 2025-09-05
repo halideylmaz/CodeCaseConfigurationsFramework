@@ -3,47 +3,27 @@ using System.ComponentModel.DataAnnotations;
 namespace DynamicConfiguration.Models
 {
     /// <summary>
-    /// Konfigürasyon Kaydı Veri Transfer Nesnesi (DTO) - API istekleri için konfigürasyon verilerini taşır
-    /// 
-    /// Bu sınıf, konfigürasyon kayıtlarının API üzerinden alınması ve gönderilmesi için
-    /// kullanılan veri transfer nesnesidir. Validation attribute'ları ile veri doğrulama
-    /// sağlar ve güvenli veri transferi yapar.
-    /// 
-    /// Özellikler:
-    /// - Veri doğrulama (Required, StringLength)
-    /// - API uyumlu veri yapısı
-    /// - Güvenli veri transferi
-    /// - Otomatik zaman damgası atama
+    /// API istekleri için konfigürasyon DTO'sı. Validation dahil.
     /// </summary>
     public class ConfigurationRecordDto
     {
-        /// <summary>
-        /// Konfigürasyon kaydının benzersiz kimliği (güncelleme için gerekli)
-        /// </summary>
+        /// <summary>ID (güncelleme için)</summary>
         public string? Id { get; set; }
 
-        /// <summary>
-        /// Konfigürasyon adı/anahtarı (1-100 karakter arası, zorunlu)
-        /// </summary>
+        /// <summary>Konfigürasyon adı</summary>
         [Required(ErrorMessage = "Konfigürasyon adı gereklidir")]
         [StringLength(100, MinimumLength = 1, ErrorMessage = "Konfigürasyon adı 1-100 karakter arası olmalıdır")]
         public string Name { get; set; } = null!;
 
-        /// <summary>
-        /// Konfigürasyon değerinin veri tipi (zorunlu)
-        /// </summary>
+        /// <summary>Veri tipi</summary>
         [Required(ErrorMessage = "Konfigürasyon tipi gereklidir")]
         public ConfigurationType Type { get; set; }
 
-        /// <summary>
-        /// Konfigürasyon değeri (zorunlu)
-        /// </summary>
+        /// <summary>Değer</summary>
         [Required(ErrorMessage = "Konfigürasyon değeri gereklidir")]
         public string Value { get; set; } = null!;
 
-        /// <summary>
-        /// Konfigürasyonun aktif olup olmadığı (varsayılan: true)
-        /// </summary>
+        /// <summary>Aktif durumu</summary>
         [Required(ErrorMessage = "Aktiflik durumu gereklidir")]
         public bool IsActive { get; set; } = true;
 

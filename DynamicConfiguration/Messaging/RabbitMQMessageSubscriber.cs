@@ -10,41 +10,20 @@ using System.Text.Json;
 namespace DynamicConfiguration.Messaging
 {
     /// <summary>
-    /// RabbitMQ Mesaj Abonesi - Konfigürasyon değişiklik olaylarını RabbitMQ'dan dinlemek için kullanılır
-    /// 
-    /// Bu sınıf, IMessageSubscriber arayüzünün RabbitMQ implementasyonudur.
-    /// Konfigürasyon değişiklik olaylarını RabbitMQ'dan dinler ve
-    /// gerçek zamanlı güncellemeler sağlar.
-    /// 
-    /// Özellikler:
-    /// - RabbitMQ bağlantı yönetimi
-    /// - Asenkron mesaj dinleme
-    /// - Uygulama bazlı abonelik yönetimi
-    /// - Otomatik bağlantı kurtarma
-    /// - Thread-safe işlemler
-    /// - Kaynak yönetimi (IDisposable)
+    /// RabbitMQ'dan konfigürasyon değişikliklerini dinler.
+    /// Real-time güncellemeler sağlar.
     /// </summary>
     public class RabbitMQMessageSubscriber : IMessageSubscriber, IDisposable
     {
-        // ========================================
-        // PRIVATE FIELDS
-        // ========================================
-        private readonly RabbitMQSettings _settings;                              // RabbitMQ ayarları
-        private readonly ILogger<RabbitMQMessageSubscriber> _logger;               // Loglama servisi
-        private IConnection? _connection;                                         // RabbitMQ bağlantısı
-        private IModel? _channel;                                                 // RabbitMQ kanalı
-        private readonly ConcurrentDictionary<string, string> _subscriptions = new(); // Aktif abonelikler
-        private readonly object _lock = new object();                             // Thread-safety için lock
-        private bool _disposed = false;                                           // Dispose durumu
+        private readonly RabbitMQSettings _settings;
+        private readonly ILogger<RabbitMQMessageSubscriber> _logger;
+        private IConnection? _connection;
+        private IModel? _channel;
+        private readonly ConcurrentDictionary<string, string> _subscriptions = new();
+        private readonly object _lock = new object();
+        private bool _disposed = false;
 
-        /// <summary>
-        /// RabbitMQ Mesaj Abonesi'ni başlatır
-        /// 
-        /// Bu constructor, RabbitMQ bağlantısını kurar ve exchange'i yapılandırır.
-        /// </summary>
-        /// <param name="settings">RabbitMQ bağlantı ayarları</param>
-        /// <param name="logger">Loglama servisi</param>
-        /// <exception cref="Exception">RabbitMQ bağlantısı kurulamazsa fırlatılır</exception>
+        /// <summary>RabbitMQ bağlantısını kurar.</summary>
         public RabbitMQMessageSubscriber(IOptions<RabbitMQSettings> settings, ILogger<RabbitMQMessageSubscriber> logger)
         {
             _settings = settings.Value;
@@ -52,18 +31,12 @@ namespace DynamicConfiguration.Messaging
             InitializeConnection();
         }
 
-        /// <summary>
-        /// RabbitMQ bağlantısını başlatır ve exchange'i yapılandırır
-        /// 
-        /// Bu method, RabbitMQ sunucusuna bağlanır, kanal oluşturur ve
-        /// konfigürasyon değişiklik olayları için exchange'i tanımlar.
-        /// </summary>
-        /// <exception cref="Exception">Bağlantı kurulamazsa fırlatılır</exception>
+        /// <summary>RabbitMQ'ya bağlanır ve exchange'i ayarlar.</summary>
         private void InitializeConnection()
         {
             try
             {
-                // RabbitMQ bağlantı factory'sini yapılandır
+                // Connection factory setup
                 var factory = new ConnectionFactory
                 {
                     HostName = _settings.HostName,
@@ -77,11 +50,11 @@ namespace DynamicConfiguration.Messaging
                     NetworkRecoveryInterval = TimeSpan.FromSeconds(_settings.NetworkRecoveryInterval)
                 };
 
-                // Bağlantı ve kanal oluştur
+                // Connection ve channel oluştur
                 _connection = factory.CreateConnection();
                 _channel = _connection.CreateModel();
 
-                // Exchange'i tanımla
+                // Exchange declare
                 _channel.ExchangeDeclare(
                     exchange: _settings.ExchangeName,
                     type: ExchangeType.Topic,
@@ -97,13 +70,7 @@ namespace DynamicConfiguration.Messaging
             }
         }
 
-        /// <summary>
-        /// Belirli bir uygulama için konfigürasyon değişiklik olaylarına abone olur
-        /// </summary>
-        /// <param name="applicationName">Abone olunacak uygulama adı</param>
-        /// <param name="onConfigurationChanged">Konfigürasyon değiştiğinde çağrılacak callback</param>
-        /// <returns>Asenkron işlemi temsil eden task</returns>
-        /// <exception cref="ObjectDisposedException">Subscriber dispose edilmişse fırlatılır</exception>
+        /// <summary>Uygulama için konfigürasyon değişikliklerini dinler.</summary>
         public async Task SubscribeToConfigurationChangesAsync(string applicationName, Func<ConfigurationChangeEvent, Task> onConfigurationChanged)
         {
             if (_disposed)
@@ -115,17 +82,17 @@ namespace DynamicConfiguration.Messaging
             {
                 lock (_lock)
                 {
-                    // Kanal kapalıysa yeniden bağlan
+                    // Channel kapalıysa yeniden bağlan
                     if (_channel == null || _channel.IsClosed)
                     {
                         _logger.LogWarning("RabbitMQ kanalı kapalı, yeniden bağlanmaya çalışılıyor...");
                         InitializeConnection();
                     }
 
-                    // Bu uygulama için queue adı oluştur
+                    // Queue name oluştur
                     var queueName = $"{_settings.QueueNamePrefix}.{applicationName}";
                     
-                    // Queue'yu tanımla
+                    // Queue declare
                     _channel.QueueDeclare(
                         queue: queueName,
                         durable: true,
@@ -133,14 +100,14 @@ namespace DynamicConfiguration.Messaging
                         autoDelete: false,
                         arguments: null);
 
-                    // Queue'yu exchange'e routing key pattern ile bağla
+                    // Queue'yu exchange'e bağla
                     var routingKey = $"configuration.{applicationName}.*";
                     _channel.QueueBind(
                         queue: queueName,
                         exchange: _settings.ExchangeName,
                         routingKey: routingKey);
 
-                    // Consumer'ı ayarla
+                    // Consumer setup
                     var consumer = new EventingBasicConsumer(_channel);
                     consumer.Received += async (model, ea) =>
                     {
@@ -162,24 +129,24 @@ namespace DynamicConfiguration.Messaging
                                 await onConfigurationChanged(changeEvent);
                             }
 
-                            // Mesajı onayla
+                            // Message ack
                             _channel.BasicAck(ea.DeliveryTag, false);
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "Konfigürasyon değişiklik olayı işlenirken hata oluştu");
-                            // Mesajı reddet ve tekrar kuyruğa alma
+                            // Message nack
                             _channel.BasicNack(ea.DeliveryTag, false, false);
                         }
                     };
 
-                    // Mesaj dinlemeye başla
+                    // Consume başlat
                     var consumerTag = _channel.BasicConsume(
                         queue: queueName,
                         autoAck: false,
                         consumer: consumer);
 
-                    // Aboneliği sakla
+                    // Subscription kaydet
                     _subscriptions[applicationName] = consumerTag;
 
                     _logger.LogInformation("Konfigürasyon değişikliklerine abone olundu - Uygulama: {ApplicationName}, Queue: {QueueName}",
@@ -194,11 +161,7 @@ namespace DynamicConfiguration.Messaging
             }
         }
 
-        /// <summary>
-        /// Belirli bir uygulama için konfigürasyon değişiklik olaylarından abonelikten çıkar
-        /// </summary>
-        /// <param name="applicationName">Abonelikten çıkılacak uygulama adı</param>
-        /// <returns>Asenkron işlemi temsil eden task</returns>
+        /// <summary>Abonelikten çıkar.</summary>
         public async Task UnsubscribeFromConfigurationChangesAsync(string applicationName)
         {
             try
@@ -221,10 +184,7 @@ namespace DynamicConfiguration.Messaging
             }
         }
 
-        /// <summary>
-        /// Mesaj abonesinin sağlıklı ve bağlı olup olmadığını kontrol eder
-        /// </summary>
-        /// <returns>Sağlıklı ise true, aksi halde false</returns>
+        /// <summary>Bağlantı sağlığını kontrol eder.</summary>
         public async Task<bool> IsHealthyAsync()
         {
             try
@@ -248,25 +208,14 @@ namespace DynamicConfiguration.Messaging
             }
         }
 
-        /// <summary>
-        /// RabbitMQ Mesaj Abonesi kaynaklarını serbest bırakır
-        /// 
-        /// Bu method, tüm abonelikleri iptal eder, RabbitMQ bağlantısı ve kanalını
-        /// güvenli bir şekilde serbest bırakır ve kaynak sızıntılarını önler.
-        /// </summary>
+        /// <summary>Kaynakları temizler.</summary>
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        /// <summary>
-        /// Kaynakları serbest bırakır (protected virtual)
-        /// 
-        /// Bu method, IDisposable pattern'ini uygular ve RabbitMQ
-        /// bağlantılarını ve abonelikleri güvenli bir şekilde temizler.
-        /// </summary>
-        /// <param name="disposing">Managed kaynakların serbest bırakılıp bırakılmayacağı</param>
+        /// <summary>Dispose pattern implementation.</summary>
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed)
@@ -278,18 +227,18 @@ namespace DynamicConfiguration.Messaging
                 {
                     try
                     {
-                        // Tüm abonelikleri iptal et
+                        // Tüm subscription'ları iptal et
                         foreach (var subscription in _subscriptions.Values)
                         {
                             _channel?.BasicCancel(subscription);
                         }
                         _subscriptions.Clear();
 
-                        // Kanalı kapat ve serbest bırak
+                        // Channel'ı kapat
                         _channel?.Close();
                         _channel?.Dispose();
                         
-                        // Bağlantıyı kapat ve serbest bırak
+                        // Connection'ı kapat
                         _connection?.Close();
                         _connection?.Dispose();
                         

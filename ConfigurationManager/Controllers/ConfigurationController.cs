@@ -5,19 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ConfigurationManager.Controllers
 {
-    /// <summary>
-    /// Dinamik Konfigürasyon Yönetim API Controller'ı
-    /// 
-    /// Bu controller, uygulamaların konfigürasyon değerlerini dinamik olarak yönetmesini sağlar.
-    /// Konfigürasyon değişiklikleri gerçek zamanlı olarak tüm bağlı servislere bildirilir.
-    /// 
-    /// Özellikler:
-    /// - Konfigürasyon kayıtlarını listeleme, ekleme, güncelleme ve silme
-    /// - Uygulama bazında filtreleme ve arama
-    /// - Otomatik type doğrulama (string, int, double, bool)
-    /// - RabbitMQ ile gerçek zamanlı değişiklik bildirimleri
-    /// - MongoDB ile güvenli veri saklama
-    /// </summary>
+    /// <summary>Configuration management API controller.</summary>
     [ApiController]
     [Route("api/[controller]")]
     public class ConfigurationController : ControllerBase
@@ -26,14 +14,7 @@ namespace ConfigurationManager.Controllers
         private readonly IMessagePublisher _messagePublisher;
         private readonly ILogger<ConfigurationController> _logger;
 
-        /// <summary>
-        /// Konfigürasyon denetleyicisi constructor'ı
-        /// 
-        /// Dependency Injection ile gerekli servisleri alır:
-        /// - IConfigurationRepository: MongoDB veri erişimi için
-        /// - IMessagePublisher: RabbitMQ mesajlaşma için
-        /// - ILogger: Loglama işlemleri için
-        /// </summary>
+        /// <summary>Constructor - DI ile servisleri alır.</summary>
         public ConfigurationController(
             IConfigurationRepository repository,
             IMessagePublisher messagePublisher,
@@ -44,19 +25,7 @@ namespace ConfigurationManager.Controllers
             _logger = logger;
         }
 
-        /// <summary>
-        /// Tüm konfigürasyon kayıtlarını listeler (isteğe bağlı filtreleme ile)
-        /// 
-        /// Bu endpoint, sistemdeki tüm konfigürasyon kayıtlarını döndürür.
-        /// İsteğe bağlı olarak uygulama adı, konfigürasyon adı ve aktiflik durumuna göre filtreleme yapabilir.
-        /// 
-        /// Parametreler:
-        /// - applicationName: Belirli bir uygulamanın konfigürasyonlarını filtreler
-        /// - nameFilter: Konfigürasyon adında arama yapar
-        /// - isActive: Sadece aktif/pasif konfigürasyonları döndürür
-        /// 
-        /// Dönen değer: Filtrelenmiş konfigürasyon kayıtları listesi
-        /// </summary>
+        /// <summary>Tüm konfigürasyonları listeler (filtreleme ile).</summary>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ConfigurationRecord>>> GetConfigurations(
             [FromQuery] string? applicationName = null,
@@ -93,17 +62,7 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Belirli bir uygulamaya ait aktif konfigürasyonları getirir
-        /// 
-        /// Bu endpoint, belirtilen uygulama adına sahip tüm aktif konfigürasyon kayıtlarını döndürür.
-        /// Sadece IsActive=true olan kayıtlar döndürülür.
-        /// 
-        /// Parametreler:
-        /// - applicationName: Konfigürasyonları getirilecek uygulamanın adı
-        /// 
-        /// Dönen değer: Belirtilen uygulamaya ait aktif konfigürasyon kayıtları listesi
-        /// </summary>
+        /// <summary>Uygulamaya ait aktif konfigürasyonları getirir.</summary>
         [HttpGet("application/{applicationName}")]
         public async Task<ActionResult<IEnumerable<ConfigurationRecord>>> GetConfigurationsByApplication(string applicationName)
         {
@@ -122,16 +81,7 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Belirli bir uygulama ve konfigürasyon adına göre tek bir konfigürasyon kaydı getirir
-        /// 
-        /// Bu endpoint, belirtilen uygulama adı ve konfigürasyon adına sahip tek bir konfigürasyon kaydını döndürür.
-        /// 
-        /// Parametreler:
-        /// - applicationName: Konfigürasyonun ait olduğu uygulamanın adı
-        /// - name: Getirilecek konfigürasyonun adı
-        /// 
-        /// </summary>
+        /// <summary>Tek bir konfigürasyon kaydını getirir.</summary>
         [HttpGet("application/{applicationName}/name/{name}")]
         public async Task<ActionResult<ConfigurationRecord>> GetConfiguration(string applicationName, string name)
         {
@@ -154,17 +104,7 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Yeni bir konfigürasyon kaydı oluşturur
-        /// 
-        /// Bu endpoint, sistemde yeni bir konfigürasyon kaydı oluşturur.
-        /// Konfigürasyon değeri, belirtilen tipe göre doğrulanır ve kayıt oluşturulduktan sonra
-        /// tüm bağlı servislere RabbitMQ üzerinden değişiklik bildirimi gönderilir.
-        /// 
-        /// Parametreler:
-        /// - ConfigurationRecordDto: Oluşturulacak konfigürasyon kaydının bilgileri
-        /// 
-        /// </summary>
+        /// <summary>Yeni konfigürasyon kaydı oluşturur.</summary>
         [HttpPost]
         public async Task<ActionResult<ConfigurationRecord>> CreateConfiguration([FromBody] ConfigurationRecordDto dto)
         {
@@ -175,7 +115,7 @@ namespace ConfigurationManager.Controllers
 
             try
             {
-                // value'nun type'a uygun olup olmadığını kontrol et
+                // Value type validation
                 if (!IsValidValue(dto.Value, dto.Type))
                 {
                     return BadRequest($"Invalid value '{dto.Value}' for type {dto.Type}");
@@ -197,7 +137,7 @@ namespace ConfigurationManager.Controllers
                 _logger.LogInformation("{ApplicationName} uygulaması için yeni konfigürasyon {Name} oluşturuldu",
                     record.ApplicationName, record.Name);
 
-                // Değişiklik bildirimi yayınla
+                // Change notification
                 await PublishConfigurationChangeEventAsync(ConfigurationChangeType.Created, createdRecord);
 
                 return CreatedAtAction(
@@ -213,18 +153,7 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Mevcut bir konfigürasyon kaydını günceller
-        /// 
-        /// Bu endpoint, belirtilen ID'ye sahip konfigürasyon kaydını günceller.
-        /// Konfigürasyon değeri, belirtilen tipe göre doğrulanır ve güncelleme işlemi tamamlandıktan sonra
-        /// tüm bağlı servislere RabbitMQ üzerinden değişiklik bildirimi gönderilir.
-        /// 
-        /// Parametreler:
-        /// - id: Güncellenecek konfigürasyon kaydının ID'si
-        /// - ConfigurationRecordDto: Güncellenecek konfigürasyon kaydının yeni bilgileri 
-        /// 
-        /// </summary>
+        /// <summary>Konfigürasyon kaydını günceller.</summary>
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateConfiguration(string id, [FromBody] ConfigurationRecordDto dto)
         {
@@ -235,7 +164,7 @@ namespace ConfigurationManager.Controllers
 
             try
             {
-                // value'nun type'a uygun olup olmadığını kontrol et
+                // Value type validation
                 if (!IsValidValue(dto.Value, dto.Type))
                 {
                     return BadRequest($"Invalid value '{dto.Value}' for type {dto.Type}");
@@ -260,7 +189,7 @@ namespace ConfigurationManager.Controllers
 
                 _logger.LogInformation("{Id} konfigürasyonu güncellendi", id);
 
-                // Değişiklik bildirimi yayınla
+                // Change notification
                 await PublishConfigurationChangeEventAsync(ConfigurationChangeType.Updated, record);
 
                 return NoContent();
@@ -272,22 +201,13 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Bir konfigürasyon kaydını siler
-        /// 
-        /// Bu endpoint, belirtilen ID'ye sahip konfigürasyon kaydını sistemden kalıcı olarak siler.
-        /// Silme işlemi tamamlandıktan sonra tüm bağlı servislere RabbitMQ üzerinden değişiklik bildirimi gönderilir.
-        /// 
-        /// Parametreler:
-        /// - id: Silinecek konfigürasyon kaydının ID'si
-        /// 
-        /// </summary>
+        /// <summary>Konfigürasyon kaydını siler.</summary>
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteConfiguration(string id)
         {
             try
             {
-                // Silinecek konfigurasyonun varlığını kontrol et
+                // Check if config exists
                 var existingConfig = await _repository.GetConfigurationByIdAsync(id);
                 if (existingConfig == null)
                 {
@@ -305,7 +225,7 @@ namespace ConfigurationManager.Controllers
 
                 _logger.LogInformation("{Id} konfigürasyonu silindi", id);
 
-                // Değişiklik bildirimi yayınla
+                // Change notification
                 await PublishConfigurationChangeEventAsync(ConfigurationChangeType.Deleted, existingConfig);
 
                 return NoContent();
@@ -317,18 +237,7 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Konfigürasyon servisinin sağlık durumunu kontrol eder
-        /// 
-        /// Bu endpoint, konfigürasyon servisinin ve bağlı veritabanının sağlık durumunu kontrol eder.
-        /// Sistemin çalışır durumda olup olmadığını belirlemek için kullanılır.
-        /// 
-        /// Dönen değer: 
-        /// - 200 OK: Servis sağlıklı (healthy)
-        /// - 503 Service Unavailable: Servis sağlıksız (unhealthy)
-        /// 
-        /// Response formatı: { "status": "healthy/unhealthy", "timestamp": "UTC zaman damgası" }
-        /// </summary>
+        /// <summary>Servis sağlık durumunu kontrol eder.</summary>
         [HttpGet("health")]
         public async Task<IActionResult> Health()
         {
@@ -351,24 +260,12 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Konfigürasyon değişiklik olayını RabbitMQ üzerinden yayınlar
-        /// 
-        /// Bu private method, konfigürasyon kayıtlarında yapılan değişiklikleri (oluşturma, güncelleme, silme)
-        /// RabbitMQ üzerinden tüm bağlı servislere bildirir. Bu sayede diğer servisler konfigürasyon
-        /// değişikliklerini gerçek zamanlı olarak takip edebilir.
-        /// 
-        /// Parametreler:
-        /// - changeType: Yapılan değişikliğin türü (Created, Updated, Deleted)
-        /// - record: Değişiklik yapılan konfigürasyon kaydı
-        /// 
-        /// Not: Mesaj yayınlama hatası ana işlemi etkilemez (hata dönmez)
-        /// </summary>
+        /// <summary>Config değişiklik olayını RabbitMQ'ya yayınlar.</summary>
         private async Task PublishConfigurationChangeEventAsync(ConfigurationChangeType changeType, ConfigurationRecord record)
         {
             try
             {
-                // Konfigürasyon değişiklik olayını oluştur
+                // Change event oluştur
                 var changeEvent = new ConfigurationChangeEvent
                 {
                     ChangeType = changeType,
@@ -386,7 +283,7 @@ namespace ConfigurationManager.Controllers
                     }
                 };
 
-                // RabbitMQ üzerinden değişiklik olayını yayınla
+                // RabbitMQ'ya yayınla
                 await _messagePublisher.PublishConfigurationChangeAsync(changeEvent);
                 _logger.LogInformation("Konfigürasyon değişiklik olayı yayınlandı: {ChangeType} - {ApplicationName}.{ConfigurationName}",
                     changeType, record.ApplicationName, record.Name);
@@ -399,24 +296,7 @@ namespace ConfigurationManager.Controllers
             }
         }
 
-        /// <summary>
-        /// Konfigürasyon değerinin belirtilen tipe uygun olup olmadığını doğrular
-        /// 
-        /// Bu private method, konfigürasyon kayıtlarında belirtilen değerin, 
-        /// belirtilen tipe uygun olup olmadığını kontrol eder.
-        /// 
-        /// Parametreler:
-        /// - value: Doğrulanacak değer (string formatında)
-        /// - type: Beklenen veri typei (String, Int, Double, Bool)
-        /// 
-        /// Dönen değer: true, false
-        /// 
-        /// Desteklenen typelar:
-        /// - String: Herhangi bir string değer geçerlidir
-        /// - Int: Sadece geçerli integer değerler
-        /// - Double: Sadece geçerli double değerler
-        /// - Bool: Sadece "true" veya "false" değerleri
-        /// </summary>
+        /// <summary>Value type validation yapar.</summary>
         private bool IsValidValue(string value, ConfigurationType type)
         {
             try

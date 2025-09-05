@@ -9,72 +9,42 @@ using System.Diagnostics;
 namespace DynamicConfiguration
 {
     /// <summary>
-    /// Dinamik Konfigürasyon Okuyucu - Güçlü Tipli Erişim ve Otomatik Yenileme
-    /// 
-    /// Bu sınıf, uygulamaların konfigürasyon değerlerine güçlü tipli erişim sağlar.
-    /// Otomatik yenileme, gerçek zamanlı güncellemeler ve son başarılı değerlere geri dönüş özellikleri sunar.
-    /// 
-    /// Özellikler:
-    /// - Güçlü tipli konfigürasyon değeri erişimi (GetValue&lt;T&gt;)
-    /// - Otomatik periyodik yenileme (Timer tabanlı)
-    /// - Gerçek zamanlı değişiklik bildirimleri (RabbitMQ)
-    /// - Thread-safe cache yönetimi
-    /// - Son başarılı değerlere geri dönüş (fallback)
-    /// - Sağlık durumu takibi
+    /// Konfigürasyonları veritabanından okur ve cache'ler.
+    /// Otomatik yenileme ve real-time güncellemeler destekler.
     /// </summary>
     public class ConfigurationReader : IDisposable
     {
-        // ========================================
-        // TEMEL YAPILANDIRMA PARAMETRELERİ
-        // ========================================
-        private readonly string _applicationName;                    // Uygulama adı
-        private readonly int _refreshTimerIntervalInMs;              // Yenileme aralığı (milisaniye)
-        private readonly ILogger<ConfigurationReader> _logger;       // Loglama servisi
-        private readonly IConfigurationRepository _repository;       // Veri erişim katmanı
-        private readonly Timer _refreshTimer;                        // Otomatik yenileme timer'ı
-        private readonly IMessageSubscriber? _messageSubscriber;     // Gerçek zamanlı mesaj abonesi
+        private readonly string _applicationName;
+        private readonly int _refreshTimerIntervalInMs;
+        private readonly ILogger<ConfigurationReader> _logger;
+        private readonly IConfigurationRepository _repository;
+        private readonly Timer _refreshTimer;
+        private readonly IMessageSubscriber? _messageSubscriber;
 
-        // ========================================
-        // THREAD-SAFE CACHE YÖNETİMİ
-        // ========================================
-        private readonly ConcurrentDictionary<string, ConfigurationRecord> _configurationCache = new();  // Konfigürasyon kayıtları cache'i
-        private readonly ConcurrentDictionary<string, object> _typedValueCache = new();                  // Tipli değerler cache'i
-        private readonly ReaderWriterLockSlim _cacheLock = new();                                        // Cache erişim kilidi
-        private bool _isDisposed;                                                                         // Dispose durumu
+        // Cache yapıları
+        private readonly ConcurrentDictionary<string, ConfigurationRecord> _configurationCache = new();
+        private readonly ConcurrentDictionary<string, object> _typedValueCache = new();
+        private readonly ReaderWriterLockSlim _cacheLock = new();
+        private bool _isDisposed;
 
-        // ========================================
-        // SAĞLIK DURUMU TAKİBİ
-        // ========================================
-        private volatile bool _isRepositoryHealthy = true;           // Repository sağlık durumu
-        private DateTime _lastSuccessfulRefresh = DateTime.MinValue; // Son başarılı yenileme zamanı
+        // Sağlık durumu
+        private volatile bool _isRepositoryHealthy = true;
+        private DateTime _lastSuccessfulRefresh = DateTime.MinValue;
 
         /// <summary>
-        /// ConfigurationReader'ın yeni bir örneğini başlatır (Basit Constructor)
-        /// 
-        /// Bu constructor, temel kullanım senaryoları için tasarlanmıştır.
-        /// Varsayılan logger ve repository ile çalışır.
+        /// Basit kullanım için constructor. Varsayılan ayarlarla çalışır.
         /// </summary>
-        /// <param name="applicationName">Bu konfigürasyonu kullanan uygulamanın adı</param>
-        /// <param name="connectionString">MongoDB bağlantı dizesi</param>
-        /// <param name="refreshTimerIntervalInMs">Konfigürasyonu depolamadan yenileme aralığı (milisaniye)</param>
+        /// <param name="applicationName">Uygulama adı</param>
+        /// <param name="connectionString">MongoDB connection string</param>
+        /// <param name="refreshTimerIntervalInMs">Yenileme aralığı (ms)</param>
         public ConfigurationReader(string applicationName, string connectionString, int refreshTimerIntervalInMs)
             : this(applicationName, connectionString, refreshTimerIntervalInMs, null, null, null, false)
         {
         }
 
         /// <summary>
-        /// ConfigurationReader'ın yeni bir örneğini başlatır (Gelişmiş Constructor)
-        /// 
-        /// Bu constructor, özelleştirilmiş logger, repository ve mesaj abonesi ile
-        /// gelişmiş kullanım senaryoları için tasarlanmıştır.
+        /// Gelişmiş constructor. Özel logger, repository ve message subscriber ile çalışır.
         /// </summary>
-        /// <param name="applicationName">Bu konfigürasyonu kullanan uygulamanın adı</param>
-        /// <param name="connectionString">MongoDB bağlantı dizesi</param>
-        /// <param name="refreshTimerIntervalInMs">Konfigürasyonu depolamadan yenileme aralığı (milisaniye)</param>
-        /// <param name="loggerFactory">Özel logger factory (null ise varsayılan oluşturulur)</param>
-        /// <param name="repository">Özel repository örneği (null ise varsayılan oluşturulur)</param>
-        /// <param name="messageSubscriber">Gerçek zamanlı güncellemeler için mesaj abonesi</param>
-        /// <param name="loadSynchronously">Konfigürasyonları senkron olarak yükleyip yüklemeyeceği (test için)</param>
         public ConfigurationReader(
             string applicationName,
             string connectionString,
@@ -84,16 +54,11 @@ namespace DynamicConfiguration
             IMessageSubscriber? messageSubscriber = null,
             bool loadSynchronously = false)
         {
-            // ========================================
-            // PARAMETRE DOĞRULAMA VE ATAMA
-            // ========================================
+            // Parameter validation
             _applicationName = applicationName ?? throw new ArgumentNullException(nameof(applicationName));
             _refreshTimerIntervalInMs = Math.Max(1000, refreshTimerIntervalInMs); // Minimum 1 saniye
 
-            // ========================================
-            // LOGGER YAPILANDIRMASI
-            // ========================================
-            // Logger factory sağlanmamışsa varsayılan oluştur
+            // Logger setup
             var factory = loggerFactory ?? LoggerFactory.Create(builder =>
             {
                 builder.AddConsole();
@@ -102,43 +67,28 @@ namespace DynamicConfiguration
 
             _logger = factory.CreateLogger<ConfigurationReader>();
 
-            // ========================================
-            // REPOSITORY YAPILANDIRMASI
-            // ========================================
-            // Repository sağlanmamışsa varsayılan oluştur
+            // Repository setup  
             _repository = repository ?? CreateDefaultRepository(connectionString);
-
-            // ========================================
-            // MESAJ ABONELİĞİ YAPILANDIRMASI
-            // ========================================
-            // Gerçek zamanlı güncellemeler için mesaj abonesini sakla
+            
+            // Message subscriber setup
             _messageSubscriber = messageSubscriber;
 
-            // ========================================
-            // İLK KONFIGÜRASYON YÜKLEMESİ
-            // ========================================
-            // Cache'i başlat
+            // İlk cache yüklemesi
             if (loadSynchronously)
             {
-                // Senkron yükleme (test senaryoları için)
+                // Test için senkron yükleme
                 Task.Run(() => LoadConfigurationsAsync()).Wait();
             }
             else
             {
-                // Asenkron yükleme (normal kullanım)
+                // Normal async yükleme
                 _ = Task.Run(() => LoadConfigurationsAsync());
             }
 
-            // ========================================
-            // OTOMATİK YENİLEME TİMER'I
-            // ========================================
-            // Periyodik yenileme timer'ını başlat
+            // Timer başlat
             _refreshTimer = new Timer(RefreshConfigurations, null, _refreshTimerIntervalInMs, _refreshTimerIntervalInMs);
 
-            // ========================================
-            // GERÇEK ZAMANLI GÜNCELLEME ABONELİĞİ
-            // ========================================
-            // Mesaj abonesi mevcutsa gerçek zamanlı güncellemelere abone ol
+            // Real-time update subscription
             if (_messageSubscriber != null)
             {
                 _ = Task.Run(() => SubscribeToConfigurationChangesAsync());
@@ -149,46 +99,27 @@ namespace DynamicConfiguration
         }
 
         /// <summary>
-        /// Belirtilen anahtara göre güçlü tipli konfigürasyon değeri getirir
-        /// 
-        /// Bu method, konfigürasyon değerlerine güçlü tipli erişim sağlar.
-        /// Önce tipli cache'den, sonra konfigürasyon cache'inden değeri alır.
+        /// Konfigürasyon değerini belirtilen tipte getirir.
         /// </summary>
-        /// <typeparam name="T">Konfigürasyon değerinin dönüştürüleceği tip</typeparam>
-        /// <param name="key">Konfigürasyon anahtarı</param>
-        /// <returns>Belirtilen tipe dönüştürülmüş konfigürasyon değeri</returns>
-        /// <exception cref="KeyNotFoundException">Konfigürasyon anahtarı bulunamadığında fırlatılır</exception>
-        /// <exception cref="InvalidCastException">Değer belirtilen tipe dönüştürülemediğinde fırlatılır</exception>
         public T GetValue<T>(string key)
         {
-            // ========================================
-            // PARAMETRE DOĞRULAMA
-            // ========================================
             if (string.IsNullOrWhiteSpace(key))
-                throw new ArgumentException("Anahtar null veya boş olamaz", nameof(key));
+                throw new ArgumentException("Key boş olamaz", nameof(key));
 
-            // ========================================
-            // TİPLİ CACHE'DEN HIZLI ERİŞİM
-            // ========================================
-            // Performans için önce tipli cache'den almaya çalış
+            // Önce cache'den bak
             if (_typedValueCache.TryGetValue(key, out var cachedValue) && cachedValue is T typedValue)
             {
                 return typedValue;
             }
 
-            // ========================================
-            // KONFIGÜRASYON CACHE'İNDEN ERİŞİM
-            // ========================================
-            // Konfigürasyon cache'inden kaydı al
+            // Cache'de yoksa configuration'dan al
             if (!_configurationCache.TryGetValue(key, out var record))
             {
                 _logger.LogWarning("Konfigürasyon anahtarı '{Key}' uygulama '{ApplicationName}' için bulunamadı", key, _applicationName);
                 throw new KeyNotFoundException($"Konfigürasyon anahtarı '{key}' bulunamadı");
             }
 
-            // ========================================
-            // TİP DÖNÜŞTÜRME VE CACHE'E KAYDETME
-            // ========================================
+            // Type conversion ve cache'e kaydet
             try
             {
                 var value = ConvertToType<T>(record.Value, record.Type);
@@ -204,16 +135,7 @@ namespace DynamicConfiguration
             }
         }
 
-        /// <summary>
-        /// Belirtilen anahtara göre güçlü tipli konfigürasyon değeri getirir (varsayılan değer ile)
-        /// 
-        /// Bu method, konfigürasyon değeri bulunamazsa veya dönüştürülemezse
-        /// belirtilen varsayılan değeri döndürür. Hata durumlarında exception fırlatmaz.
-        /// </summary>
-        /// <typeparam name="T">Konfigürasyon değerinin dönüştürüleceği tip</typeparam>
-        /// <param name="key">Konfigürasyon anahtarı</param>
-        /// <param name="defaultValue">Anahtar bulunamazsa veya dönüştürme başarısız olursa döndürülecek varsayılan değer</param>
-        /// <returns>Konfigürasyon değeri veya varsayılan değer</returns>
+        /// <summary>Değeri getirir, yoksa default döner.</summary>
         public T GetValue<T>(string key, T defaultValue)
         {
             try
@@ -227,67 +149,37 @@ namespace DynamicConfiguration
             }
         }
 
-        /// <summary>
-        /// Belirtilen konfigürasyon anahtarının mevcut olup olmadığını kontrol eder
-        /// </summary>
-        /// <param name="key">Kontrol edilecek konfigürasyon anahtarı</param>
-        /// <returns>Anahtar mevcutsa true, aksi halde false</returns>
+        /// <summary>Key var mı kontrol eder.</summary>
         public bool HasKey(string key)
         {
             return _configurationCache.ContainsKey(key);
         }
 
-        /// <summary>
-        /// Mevcut uygulama için tüm konfigürasyon anahtarlarını getirir
-        /// </summary>
-        /// <returns>Konfigürasyon anahtarları koleksiyonu</returns>
+        /// <summary>Tüm key'leri getirir.</summary>
         public IEnumerable<string> GetAllKeys()
         {
             return _configurationCache.Keys.ToList();
         }
 
-        /// <summary>
-        /// Konfigürasyon cache'ini zorla yeniler
-        /// 
-        /// Bu method, depolamadan konfigürasyonları yeniden yükler.
-        /// Normal durumda otomatik yenileme yeterlidir, ancak acil durumlarda
-        /// manuel yenileme için kullanılabilir.
-        /// </summary>
+        /// <summary>Cache'i manuel yeniler.</summary>
         public async Task RefreshAsync()
         {
             await LoadConfigurationsAsync();
         }
 
-        /// <summary>
-        /// Konfigürasyon okuyucunun sağlık durumunu getirir
-        /// 
-        /// Sağlıklı olması için repository bağlantısı aktif olmalı ve
-        /// en az bir konfigürasyon kaydı cache'de bulunmalıdır.
-        /// </summary>
-        /// <returns>Sağlıklı ise true, aksi halde false</returns>
+        /// <summary>Sağlık durumunu kontrol eder.</summary>
         public bool IsHealthy()
         {
             return _isRepositoryHealthy && _configurationCache.Any();
         }
 
-        /// <summary>
-        /// Son başarılı konfigürasyon yenileme zamanını getirir
-        /// 
-        /// Bu bilgi, sistem sağlığı ve performans izleme için kullanılabilir.
-        /// </summary>
+        /// <summary>Son başarılı yenileme zamanı.</summary>
         public DateTime LastSuccessfulRefresh => _lastSuccessfulRefresh;
 
-        /// <summary>
-        /// Varsayılan MongoDB repository'sini oluşturur
-        /// 
-        /// Bu method, özel repository sağlanmadığında varsayılan MongoDB repository'sini
-        /// oluşturmak için kullanılır.
-        /// </summary>
-        /// <param name="connectionString">MongoDB bağlantı dizesi</param>
-        /// <returns>Yapılandırılmış MongoDB repository örneği</returns>
+        /// <summary>Default MongoDB repository oluşturur.</summary>
         private IConfigurationRepository CreateDefaultRepository(string connectionString)
         {
-            // MongoDB ayarlarını oluştur
+            // MongoDB settings
             var settings = new MongoDbSettings
             {
                 ConnectionString = connectionString,
@@ -295,7 +187,7 @@ namespace DynamicConfiguration
                 CollectionName = "Configurations"
             };
 
-            // Repository için uygun logger tipini oluştur
+            // Logger factory
             var loggerFactory = LoggerFactory.Create(builder =>
             {
                 builder.AddConsole();
@@ -307,27 +199,22 @@ namespace DynamicConfiguration
             return new MongoConfigurationRepository(Options.Create(settings), repositoryLogger);
         }
 
-        /// <summary>
-        /// Konfigürasyonları depolamadan asenkron olarak yükler
-        /// 
-        /// Bu method, repository'den aktif konfigürasyonları alır ve cache'i günceller.
-        /// Thread-safe çalışır ve hata durumlarında son başarılı değerleri korur.
-        /// </summary>
+        /// <summary>Repository'den konfigürasyonları yükler ve cache'i günceller.</summary>
         private async Task LoadConfigurationsAsync()
         {
             try
             {
-                // Cache yazma kilidini al
+                // Write lock al
                 _cacheLock.EnterWriteLock();
 
-                // Repository'den aktif konfigürasyonları al
+                // Repository'den aktif config'leri al
                 var configurations = await _repository.GetActiveConfigurationsAsync(_applicationName);
 
-                // Mevcut cache'leri temizle
+                // Cache'leri temizle
                 _configurationCache.Clear();
                 _typedValueCache.Clear();
 
-                // Yeni konfigürasyonları yükle
+                // Yeni config'leri yükle
                 foreach (var config in configurations)
                 {
                     _configurationCache[config.Name] = config;
@@ -342,36 +229,25 @@ namespace DynamicConfiguration
             }
             catch (Exception ex)
             {
-                // Hata durumunda sağlık durumunu güncelle
+                // Hata durumunda health status güncelle
                 _isRepositoryHealthy = false;
                 _logger.LogError(ex, "Konfigürasyonlar yüklenemedi - Uygulama: {ApplicationName}. Mevcut cache değerleri kullanılıyor.",
                     _applicationName);
             }
             finally
             {
-                // Cache yazma kilidini serbest bırak
+                // Write lock serbest bırak
                 _cacheLock.ExitWriteLock();
             }
         }
 
-        /// <summary>
-        /// Timer callback method - Konfigürasyonları yeniler
-        /// 
-        /// Bu method, Timer tarafından periyodik olarak çağrılır ve
-        /// konfigürasyonları asenkron olarak yeniler.
-        /// </summary>
-        /// <param name="state">Timer state parametresi (kullanılmaz)</param>
+        /// <summary>Timer callback - config'leri yeniler.</summary>
         private void RefreshConfigurations(object? state)
         {
             Task.Run(() => LoadConfigurationsAsync());
         }
 
-        /// <summary>
-        /// Gerçek zamanlı konfigürasyon değişikliklerine abone olur
-        /// 
-        /// Bu method, RabbitMQ üzerinden gelen konfigürasyon değişikliklerini
-        /// dinlemek için mesaj abonesine abone olur.
-        /// </summary>
+        /// <summary>Real-time config değişikliklerine abone olur.</summary>
         private async Task SubscribeToConfigurationChangesAsync()
         {
             if (_messageSubscriber == null)
@@ -391,13 +267,7 @@ namespace DynamicConfiguration
             }
         }
 
-        /// <summary>
-        /// Konfigürasyon değişiklik olayını işler
-        /// 
-        /// Bu method, RabbitMQ'dan gelen konfigürasyon değişiklik olaylarını işler.
-        /// Değişiklik tipine göre cache'i günceller veya yeniden yükler.
-        /// </summary>
-        /// <param name="changeEvent">Konfigürasyon değişiklik olayı</param>
+        /// <summary>Config değişiklik olayını işler.</summary>
         private async Task OnConfigurationChanged(ConfigurationChangeEvent changeEvent)
         {
             try
@@ -409,7 +279,7 @@ namespace DynamicConfiguration
                 {
                     case ConfigurationChangeType.Created:
                     case ConfigurationChangeType.Updated:
-                        // Belirli konfigürasyonu veya tüm konfigürasyonları yeniden yükle
+                        // Config'leri yeniden yükle
                         await LoadConfigurationsAsync();
                         break;
 
@@ -429,7 +299,7 @@ namespace DynamicConfiguration
                         break;
 
                     case ConfigurationChangeType.StatusChanged:
-                        // Güncellenmiş durumu almak için konfigürasyonları yeniden yükle
+                        // Status değişikliği için config'leri yeniden yükle
                         await LoadConfigurationsAsync();
                         break;
                 }
@@ -441,21 +311,12 @@ namespace DynamicConfiguration
             }
         }
 
-        /// <summary>
-        /// String değeri belirtilen tipe dönüştürür
-        /// 
-        /// Bu method, konfigürasyon değerlerini güçlü tipli değerlere dönüştürür.
-        /// Tip uyumluluğunu kontrol eder ve güvenli dönüştürme yapar.
-        /// </summary>
-        /// <typeparam name="T">Hedef tip</typeparam>
-        /// <param name="value">Dönüştürülecek string değer</param>
-        /// <param name="configType">Konfigürasyon tipi</param>
-        /// <returns>Dönüştürülmüş değer</returns>
+        /// <summary>String değeri belirtilen tipe dönüştürür.</summary>
         private T ConvertToType<T>(string value, ConfigurationType configType)
         {
             try
             {
-                // Tip uyumluluğunu doğrula
+                // Type compatibility check
                 var targetType = typeof(T);
                 ValidateTypeCompatibility(configType, targetType);
 
@@ -469,14 +330,7 @@ namespace DynamicConfiguration
             }
         }
 
-        /// <summary>
-        /// Konfigürasyon tipi ile hedef tip arasındaki uyumluluğu doğrular
-        /// 
-        /// Bu method, güvenli tip dönüştürme için tip uyumluluğunu kontrol eder.
-        /// </summary>
-        /// <param name="configType">Konfigürasyon tipi</param>
-        /// <param name="targetType">Hedef tip</param>
-        /// <exception cref="InvalidCastException">Tip uyumsuzluğu durumunda fırlatılır</exception>
+        /// <summary>Type compatibility kontrol eder.</summary>
         private void ValidateTypeCompatibility(ConfigurationType configType, Type targetType)
         {
             var isCompatible = configType switch
@@ -494,25 +348,14 @@ namespace DynamicConfiguration
             }
         }
 
-        /// <summary>
-        /// ConfigurationReader kaynaklarını serbest bırakır
-        /// 
-        /// Bu method, timer, cache lock ve mesaj abonesi gibi kaynakları
-        /// güvenli bir şekilde serbest bırakır.
-        /// </summary>
+        /// <summary>Kaynakları temizler.</summary>
         public void Dispose()
         {
             Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        /// <summary>
-        /// Kaynakları serbest bırakır (protected virtual)
-        /// 
-        /// Bu method, IDisposable pattern'ini uygular ve kaynakları
-        /// güvenli bir şekilde temizler.
-        /// </summary>
-        /// <param name="disposing">Managed kaynakların serbest bırakılıp bırakılmayacağı</param>
+        /// <summary>Dispose pattern implementation.</summary>
         protected virtual void Dispose(bool disposing)
         {
             if (_isDisposed)
@@ -520,13 +363,13 @@ namespace DynamicConfiguration
 
             if (disposing)
             {
-                // Timer'ı serbest bırak
+                // Timer'ı dispose et
                 _refreshTimer?.Dispose();
                 
-                // Cache lock'ı serbest bırak
+                // Cache lock'ı dispose et
                 _cacheLock?.Dispose();
                 
-                // Mesaj abonesini serbest bırak
+                // Message subscriber'ı dispose et
                 _messageSubscriber?.Dispose();
             }
 

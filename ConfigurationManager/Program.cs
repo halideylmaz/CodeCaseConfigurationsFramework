@@ -2,15 +2,10 @@ using DynamicConfiguration.Repositories;
 using DynamicConfiguration.Messaging;
 using Microsoft.Extensions.Options;
 
-// Dinamik Konfigürasyon Yönetim Sistemi - Ana Uygulama Başlatıcısı
-// Bu dosya, konfigürasyon yönetimi için gerekli tüm servisleri yapılandırır
+// Configuration Manager - Ana uygulama
 var builder = WebApplication.CreateBuilder(args);
 
-// ========================================
-// SERVİS KAYITLARI (Service Registrations)
-// ========================================
-
-// Web API servislerini ekle
+// Web API servisleri
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -22,24 +17,13 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ========================================
-// VERİTABANI VE MESAJLAŞMA YAPILANDIRMASI
-// ========================================
-
-// MongoDB bağlantı ayarlarını yapılandır
-// Konfigürasyon kayıtları MongoDB'de saklanır
+// MongoDB ve RabbitMQ ayarları
 builder.Services.Configure<MongoDbSettings>(builder.Configuration.GetSection("MongoDbSettings"));
 
-// RabbitMQ mesajlaşma ayarlarını yapılandır
-// Konfigürasyon değişiklikleri RabbitMQ ile diğer servislere bildirilir
+// RabbitMQ settings
 builder.Services.Configure<RabbitMQSettings>(builder.Configuration.GetSection("RabbitMQSettings"));
 
-// ========================================
-// DEPENDENCY INJECTION KAYITLARI
-// ========================================
-
-// MongoDB konfigürasyon repository'sini kaydet
-// Bu servis, konfigürasyon verilerini MongoDB'den okur/yazar
+// Repository ve message publisher kayıtları
 builder.Services.AddSingleton<IConfigurationRepository>(serviceProvider =>
 {
     var settings = serviceProvider.GetRequiredService<IOptions<MongoDbSettings>>();
@@ -47,8 +31,7 @@ builder.Services.AddSingleton<IConfigurationRepository>(serviceProvider =>
     return new MongoConfigurationRepository(settings, logger);
 });
 
-// RabbitMQ mesaj yayıncısını kaydet
-// Bu servis, konfigürasyon değişikliklerini diğer servislere bildirir
+// Message publisher
 builder.Services.AddSingleton<IMessagePublisher>(serviceProvider =>
 {
     var settings = serviceProvider.GetRequiredService<IOptions<RabbitMQSettings>>();
@@ -56,36 +39,29 @@ builder.Services.AddSingleton<IMessagePublisher>(serviceProvider =>
     return new RabbitMQMessagePublisher(settings, logger);
 });
 
-// ========================================
-// CORS YAPILANDIRMASI
-// ========================================
-
-// Cross-Origin Resource Sharing ayarları
-// Web arayüzünden API'ye erişim için gerekli
+// CORS ayarları
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()      // Tüm kaynaklardan erişime izin ver
-              .AllowAnyMethod()      // Tüm HTTP metodlarına izin ver
-              .AllowAnyHeader();     // Tüm header'lara izin ver
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
     });
 });
 
-// ========================================
-// UYGULAMA YAPILANDIRMASI
-// ========================================
+// App configuration
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    // Geliştirme ortamında Swagger UI'ı etkinleştir
+    // Swagger UI
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Dinamik Konfigürasyon API v1");
-        c.RoutePrefix = "swagger"; // Swagger UI'ı /swagger adresinde erişilebilir yap
+        c.RoutePrefix = "swagger";
     });
 }
 
@@ -95,12 +71,7 @@ app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 
-// ========================================
-// ANA SAYFA YAPILANDIRMASI
-// ========================================
-
-// Ana sayfa olarak index.html'i sun
-// Bu, kullanıcıların web arayüzüne erişmesini sağlar
+// Ana sayfa - index.html
 app.MapGet("/", async context =>
 {
     context.Response.ContentType = "text/html; charset=utf-8";

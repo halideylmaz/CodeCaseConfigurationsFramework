@@ -5,55 +5,32 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace DynamicConfiguration.Models
 {
     /// <summary>
-    /// Konfigürasyon Kaydı - Veritabanında saklanan konfigürasyon verilerini temsil eder
-    /// 
-    /// Bu sınıf, MongoDB'de saklanan konfigürasyon kayıtlarının yapısını tanımlar.
-    /// Her konfigürasyon kaydı, belirli bir uygulamaya ait olan ve belirli bir tipte
-    /// değer içeren konfigürasyon bilgilerini barındırır.
-    /// 
-    /// Özellikler:
-    /// - Benzersiz kimlik (ObjectId)
-    /// - Konfigürasyon adı ve değeri
-    /// - Veri tipi (String, Int, Double, Bool)
-    /// - Aktiflik durumu
-    /// - Uygulama adı
-    /// - Oluşturulma ve güncellenme zamanları
+    /// MongoDB'de saklanan konfigürasyon kaydı.
     /// </summary>
     public class ConfigurationRecord
     {
-        /// <summary>
-        /// Konfigürasyon kaydının benzersiz kimliği (MongoDB ObjectId)
-        /// </summary>
+        /// <summary>Unique ID</summary>
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = null!;
 
-        /// <summary>
-        /// Konfigürasyon adı/anahtarı (örn: "SiteName", "MaxItemCount")
-        /// </summary>
+        /// <summary>Konfigürasyon adı</summary>
         [BsonElement("name")]
         public string Name { get; set; } = null!;
 
-        /// <summary>
-        /// Konfigürasyon değerinin veri tipi (String, Int, Double, Bool)
-        /// </summary>
+        /// <summary>Data type</summary>
         [BsonElement("type")]
         public ConfigurationType Type { get; set; }
 
-        /// <summary>
-        /// Konfigürasyon değeri (string formatında saklanır, tip dönüşümü ile kullanılır)
-        /// </summary>
+        /// <summary>Değer (string olarak saklanır)</summary>
         [BsonElement("value")]
         public string Value { get; set; } = null!;
 
-        /// <summary>
-        /// Konfigürasyonun aktif olup olmadığı (sadece aktif kayıtlar kullanılır)
-        /// </summary>
+        /// <summary>Aktif mi?</summary>
         [BsonElement("isActive")]
         public bool IsActive { get; set; }
 
-        /// <summary>
-        /// Bu konfigürasyonun ait olduğu uygulamanın adı (örn: "SERVICE-A")
+        /// <summary>Hangi uygulamaya ait
         /// </summary>
         [BsonElement("applicationName")]
         public string ApplicationName { get; set; } = null!;

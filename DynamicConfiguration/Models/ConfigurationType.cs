@@ -1,32 +1,18 @@
 namespace DynamicConfiguration.Models
 {
-    /// <summary>
-    /// Desteklenen Konfigürasyon Değer Tipleri - Konfigürasyon değerlerinin hangi veri tiplerinde olabileceğini tanımlar
-    /// 
-    /// Bu enum, konfigürasyon değerlerinin desteklenen veri tiplerini belirtir.
-    /// Her tip, güçlü tipli dönüştürme işlemleri için kullanılır ve
-    /// tip güvenliği sağlar.
-    /// </summary>
+    /// <summary>Desteklenen konfigürasyon tipleri.</summary>
     public enum ConfigurationType
     {
-        /// <summary>
-        /// string tipinde konfigürasyon değeri
-        /// </summary>
+        /// <summary>String tipi</summary>
         String,
 
-        /// <summary>
-        /// int tipinde konfigürasyon değeri
-        /// </summary>
+        /// <summary>Int tipi</summary>
         Int,
 
-        /// <summary>
-        /// double tipinde konfigürasyon değeri
-        /// </summary>
+        /// <summary>Double tipi</summary>
         Double,
 
-        /// <summary>
-        /// bool tipinde konfigürasyon değeri
-        /// </summary>
+        /// <summary>Bool tipi</summary>
         Bool
     }
 }

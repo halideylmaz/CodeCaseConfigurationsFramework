@@ -2,24 +2,22 @@ using DynamicConfiguration;
 
 namespace ExampleApplication
 {
-    /// <summary>
-    /// Dinamik Konfigürasyon Çerçevesinin nasıl kullanılacağını gösteren örnek
-    /// </summary>
+    /// <summary>Konfigürasyon kullanım örneği.</summary>
     public class ConfigurationExample
     {
         private readonly ConfigurationReader _configReader;
 
         public ConfigurationExample()
         {
-            // Konfigürasyon okuyucusunu başlat
+            // Config reader başlat
             _configReader = new ConfigurationReader(
                 applicationName: "SERVICE-A",
                 connectionString: "mongodb://localhost:27017",
-                refreshTimerIntervalInMs: 30000 // Her 30 saniyede bir yenile
+                refreshTimerIntervalInMs: 30000 // 30 saniyede bir yenile
             );
         }
 
-        public void DemonstrateUsage()
+        public async Task DemonstrateUsage()
         {
             try
             {
@@ -33,27 +31,27 @@ namespace ExampleApplication
                 int maxItemCount = _configReader.GetValue<int>("MaxItemCount");
                 Console.WriteLine($"Maksimum Öğe Sayısı: {maxItemCount}");
 
-                // Varsayılan değerlerle kullanım (güvenli geri dönüş)
+                // Varsayılan değerlerle kullanım
                 string optionalSetting = _configReader.GetValue("OptionalSetting", "varsayılan-değer");
                 Console.WriteLine($"İsteğe Bağlı Ayar: {optionalSetting}");
 
-                // Konfigürasyonun var olup olmadığını kontrol et
+                // Key var mı kontrol et
                 if (_configReader.HasKey("SomeFeatureFlag"))
                 {
                     bool featureFlag = _configReader.GetValue<bool>("SomeFeatureFlag");
                     Console.WriteLine($"Özellik Bayrağı: {featureFlag}");
                 }
 
-                // Tüm mevcut anahtarları getir
+                // Tüm key'leri getir
                 var allKeys = _configReader.GetAllKeys();
                 Console.WriteLine($"Mevcut konfigürasyon anahtarları: {string.Join(", ", allKeys)}");
 
-                // Sağlık kontrolü
+                // Health check
                 bool isHealthy = _configReader.IsHealthy();
                 Console.WriteLine($"Konfigürasyon servisi sağlıklı: {isHealthy}");
 
-                // Manuel yenileme (hemen yeniden yüklemeye zorla)
-                _configReader.RefreshAsync().Wait();
+                // Manuel yenileme
+                await _configReader.RefreshAsync();
                 Console.WriteLine("Konfigürasyon manuel olarak yenilendi");
             }
             catch (Exception ex)
@@ -66,7 +64,7 @@ namespace ExampleApplication
         {
             try
             {
-                // Anahtar mevcut değilse KeyNotFoundException fırlatır
+                // Key yoksa exception fırlatır
                 string missingConfig = _configReader.GetValue<string>("NonExistentKey");
             }
             catch (KeyNotFoundException ex)
@@ -76,7 +74,7 @@ namespace ExampleApplication
 
             try
             {
-                // Tip dönüştürme başarısız olursa InvalidCastException fırlatır
+                // Type conversion başarısız olursa exception fırlatır
                 int invalidType = _configReader.GetValue<int>("SiteName"); // SiteName string tipinde
             }
             catch (InvalidCastException ex)
@@ -84,15 +82,13 @@ namespace ExampleApplication
                 Console.WriteLine($"Tip dönüştürme başarısız: {ex.Message}");
             }
 
-            // Varsayılan değerlerle güvenli erişim
+            // Güvenli erişim
             string safeValue = _configReader.GetValue("PotentiallyMissingKey", "güvenli-varsayılan");
             Console.WriteLine($"Güvenli değer: {safeValue}");
         }
     }
 
-    /// <summary>
-    /// Servis sınıfında konfigürasyon entegrasyonu örneği
-    /// </summary>
+    /// <summary>Servis entegrasyonu örneği.</summary>
     public class OrderService
     {
         private readonly ConfigurationReader _config;
@@ -104,7 +100,7 @@ namespace ExampleApplication
 
         public void ProcessOrder()
         {
-            // İş mantığında konfigürasyon değerlerini kullan
+            // Config değerlerini kullan
             bool basketEnabled = _config.GetValue("IsBasketEnabled", true);
             int maxItems = _config.GetValue("MaxItemCount", 100);
 
@@ -119,14 +115,12 @@ namespace ExampleApplication
         }
     }
 
-    /// <summary>
-    /// Dependency Injection kurulumu örneği
-    /// </summary>
+    /// <summary>DI kurulumu örneği.</summary>
     public class Startup
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            // Konfigürasyon okuyucusunu singleton olarak kaydet
+            // Config reader singleton kaydet
             services.AddSingleton(sp =>
             {
                 var config = sp.GetRequiredService<IConfiguration>();
@@ -139,14 +133,12 @@ namespace ExampleApplication
                 );
             });
 
-            // Konfigürasyona bağımlı servisleri kaydet
+            // Servisleri kaydet
             services.AddScoped<OrderService>();
         }
     }
 
-    /// <summary>
-    /// Kullanımı gösteren program giriş noktası
-    /// </summary>
+    /// <summary>Program giriş noktası.</summary>
     public class Program
     {
         public static async Task Main(string[] args)
@@ -161,11 +153,11 @@ namespace ExampleApplication
             example.DemonstrateErrorHandling();
             Console.WriteLine();
 
-            // Periyodik yenilemeyi göster
+            // Periyodik yenileme
             Console.WriteLine("Konfigürasyon her 30 saniyede bir otomatik yenilenecek...");
             Console.WriteLine("Çıkmak için Ctrl+C tuşuna basın");
 
-            // Yenilemeyi göstermek için uygulamayı çalışır durumda tut
+            // Uygulamayı çalışır durumda tut
             var cancellationTokenSource = new CancellationTokenSource();
 
             Console.CancelKeyPress += (sender, e) =>

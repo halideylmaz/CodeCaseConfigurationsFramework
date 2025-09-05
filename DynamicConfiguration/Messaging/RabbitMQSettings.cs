@@ -1,73 +1,39 @@
 namespace DynamicConfiguration.Messaging
 {
-    /// <summary>
-    /// RabbitMQ Ayarları - RabbitMQ bağlantı ve yapılandırma bilgilerini içerir
-    /// 
-    /// Bu sınıf, RabbitMQ mesaj broker bağlantısı için gerekli ayarları tanımlar.
-    /// appsettings.json dosyasından yüklenir ve dependency injection ile
-    /// messaging servislerine enjekte edilir.
-    /// 
-    /// Özellikler:
-    /// - Bağlantı bilgileri (host, port, kullanıcı adı, şifre)
-    /// - Exchange ve queue yapılandırması
-    /// - Bağlantı timeout ve heartbeat ayarları
-    /// - Otomatik kurtarma seçenekleri
-    /// </summary>
+    /// <summary>RabbitMQ bağlantı ayarları.</summary>
     public class RabbitMQSettings
     {
-        /// <summary>
-        /// RabbitMQ sunucu host adı (varsayılan: "localhost")
-        /// </summary>
+        /// <summary>Host adı</summary>
         public string HostName { get; set; } = "localhost";
 
-        /// <summary>
-        /// RabbitMQ sunucu port numarası (varsayılan: 5672)
-        /// </summary>
+        /// <summary>Port numarası</summary>
         public int Port { get; set; } = 5672;
 
-        /// <summary>
-        /// RabbitMQ kimlik doğrulama kullanıcı adı (varsayılan: "guest")
-        /// </summary>
+        /// <summary>Kullanıcı adı</summary>
         public string UserName { get; set; } = "guest";
 
-        /// <summary>
-        /// RabbitMQ kimlik doğrulama şifresi (varsayılan: "guest")
-        /// </summary>
+        /// <summary>Şifre</summary>
         public string Password { get; set; } = "guest";
 
-        /// <summary>
-        /// Sanal host adı (varsayılan: "/")
-        /// </summary>
+        /// <summary>Sanal host</summary>
         public string VirtualHost { get; set; } = "/";
 
-        /// <summary>
-        /// Konfigürasyon değişiklik olayları için exchange adı (varsayılan: "configuration.changes")
-        /// </summary>
+        /// <summary>Exchange adı</summary>
         public string ExchangeName { get; set; } = "configuration.changes";
 
-        /// <summary>
-        /// Konfigürasyon değişiklik olayları için queue adı öneki (varsayılan: "configuration.changes")
-        /// </summary>
+        /// <summary>Queue adı öneki</summary>
         public string QueueNamePrefix { get; set; } = "configuration.changes";
 
-        /// <summary>
-        /// Bağlantı timeout süresi (milisaniye) (varsayılan: 30000)
-        /// </summary>
+        /// <summary>Bağlantı timeout</summary>
         public int ConnectionTimeout { get; set; } = 30000;
 
-        /// <summary>
-        /// İstenen heartbeat aralığı (saniye) (varsayılan: 60)
-        /// </summary>
+        /// <summary>Heartbeat aralığı</summary>
         public ushort RequestedHeartbeat { get; set; } = 60;
 
-        /// <summary>
-        /// Otomatik kurtarma kullanılıp kullanılmayacağı (varsayılan: true)
-        /// </summary>
+        /// <summary>Otomatik kurtarma</summary>
         public bool AutomaticRecoveryEnabled { get; set; } = true;
 
-        /// <summary>
-        /// Ağ kurtarma aralığı (saniye) (varsayılan: 5)
-        /// </summary>
+        /// <summary>Ağ kurtarma aralığı</summary>
         public int NetworkRecoveryInterval { get; set; } = 5;
     }
 }
